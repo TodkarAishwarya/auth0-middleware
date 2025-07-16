@@ -1,25 +1,36 @@
-require('dotenv').config();
-
 const express = require('express');
-const { expressjwt: jwt } = require('express-jwt'); // ✅ fixed import
-const jwksRsa = require('jwks-rsa');
+const jwt = require('jsonwebtoken');
+const dotenv = require('dotenv');
+
+dotenv.config();
 
 const app = express();
 
-const checkJwt = jwt({
-  secret: jwksRsa.expressJwtSecret({
-    cache: true,
-    rateLimit: true,
-    jwksRequestsPerMinute: 5,
-    jwksUri: `https://${process.env.AUTH0_DOMAIN}/.well-known/jwks.json`
-  }),
-  audience: process.env.AUTH0_AUDIENCE,
-  issuer: `https://${process.env.AUTH0_DOMAIN}/`,
-  algorithms: ['RS256']
-});
+const checkJwt = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).send('Missing or invalid Authorization header');
+  }
+
+  const token = authHeader.split(' ')[1];
+
+  try {
+    const decoded = jwt.verify(token, process.env.AUTH0_SECRET, {
+      algorithms: ['HS256'],
+      issuer: `https://${process.env.AUTH0_DOMAIN}/`
+    });
+
+    req.user = decoded;
+    next();
+  } catch (err) {
+    console.error('JWT verification failed:', err);
+    return res.status(401).send('Unauthorized: Invalid token');
+  }
+};
 
 app.get('/protected', checkJwt, (req, res) => {
-  res.send('Token is valid. You have accessed a protected route!');
+  res.send(`Token is valid. Welcome ${req.user.firstName || 'user'}!`);
 });
 
 const port = process.env.PORT;
