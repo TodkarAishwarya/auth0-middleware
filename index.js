@@ -1,26 +1,28 @@
-import express from 'express';
-import dotenv from 'dotenv';
-import { verifySessionToken } from './verifyToken.js';
+require('dotenv').config();
 
-dotenv.config();
+const express = require('express');
+const { expressjwt: jwt } = require('express-jwt'); // ✅ fixed import
+const jwksRsa = require('jwks-rsa');
+
 const app = express();
-app.use(express.json());
 
-app.post('/validate-session-token', async (req, res) => {
-  const { token } = req.body;
-
-  if (!token) {
-    return res.status(400).json({ valid: false, error: 'No token provided' });
-  }
-
-  try {
-    const payload = await verifySessionToken(token);
-    return res.json({ valid: true, payload });
-  } catch (err) {
-    return res.status(401).json({ valid: false, error: err.message });
-  }
+const checkJwt = jwt({
+  secret: jwksRsa.expressJwtSecret({
+    cache: true,
+    rateLimit: true,
+    jwksRequestsPerMinute: 5,
+    jwksUri: `https://${process.env.AUTH0_DOMAIN}/.well-known/jwks.json`
+  }),
+  audience: process.env.AUTH0_AUDIENCE,
+  issuer: `https://${process.env.AUTH0_DOMAIN}/`,
+  algorithms: ['RS256']
 });
 
-app.listen(3000, () => {
-  console.log('Middleware listening on port 3000');
+app.get('/protected', checkJwt, (req, res) => {
+  res.send('Token is valid. You have accessed a protected route!');
+});
+
+const port = process.env.PORT;
+app.listen(port, () => {
+  console.log(`Server running on http://localhost:${port}`);
 });
