@@ -1,39 +1,31 @@
+require('dotenv').config();
+
 const express = require('express');
 const jwt = require('jsonwebtoken');
-const dotenv = require('dotenv');
-
-dotenv.config();
 
 const app = express();
 
-const checkJwt = (req, res, next) => {
+app.get('/protected', (req, res) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).send('Missing or invalid Authorization header');
+    return res.status(401).send('❌ No token provided');
   }
 
   const token = authHeader.split(' ')[1];
 
   try {
-    const decoded = jwt.verify(token, process.env.AUTH0_SECRET, {
-      algorithms: ['HS256'],
-      issuer: `https://${process.env.AUTH0_DOMAIN}/`
-    });
-
-    req.user = decoded;
-    next();
+    // ✅ HS256 token verification using shared secret
+    const decoded = jwt.verify(token, process.env.HS256_SECRET);
+    console.log('✅ Token verified:', decoded);
+    return res.status(200).json({ message: '✅ Token is valid', user: decoded });
   } catch (err) {
-    console.error('JWT verification failed:', err);
+    console.error('❌ Invalid token:', err.message);
     return res.status(401).send('Unauthorized: Invalid token');
   }
-};
-
-app.get('/protected', checkJwt, (req, res) => {
-  res.send(`Token is valid. Welcome ${req.user.firstName || 'user'}!`);
 });
 
-const port = process.env.PORT;
+const port = process.env.PORT || 10000;
 app.listen(port, () => {
-  console.log(`Server running on http://localhost:${port}`);
+  console.log(`✅ Server running on port ${port}`);
 });
