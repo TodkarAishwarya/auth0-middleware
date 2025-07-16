@@ -1,31 +1,29 @@
-require('dotenv').config();
-
+// index.js
 const express = require('express');
-const jwt = require('jsonwebtoken');
+const jwt = require('express-jwt');
+const jwksRsa = require('jwks-rsa');
+require('dotenv').config();
 
 const app = express();
 
-app.get('/protected', (req, res) => {
-  const authHeader = req.headers.authorization;
-
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).send('❌ No token provided');
-  }
-
-  const token = authHeader.split(' ')[1];
-
-  try {
-    // ✅ HS256 token verification using shared secret
-    const decoded = jwt.verify(token, process.env.HS256_SECRET);
-    console.log('✅ Token verified:', decoded);
-    return res.status(200).json({ message: '✅ Token is valid', user: decoded });
-  } catch (err) {
-    console.error('❌ Invalid token:', err.message);
-    return res.status(401).send('Unauthorized: Invalid token');
-  }
+// RS256 verification middleware
+const checkJwt = jwt({
+  secret: jwksRsa.expressJwtSecret({
+    cache: true,
+    rateLimit: true,
+    jwksRequestsPerMinute: 5,
+    jwksUri: `https://${process.env.AUTH0_DOMAIN}/.well-known/jwks.json`,
+  }),
+  audience: process.env.AUTH0_AUDIENCE,
+  issuer: `https://${process.env.AUTH0_DOMAIN}/`,
+  algorithms: ['RS256'],
 });
 
-const port = process.env.PORT || 10000;
-app.listen(port, () => {
-  console.log(`✅ Server running on port ${port}`);
+app.get('/protected', checkJwt, (req, res) => {
+  res.send({ message: '✅ Token verified successfully!', user: req.user });
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Listening on port ${PORT}`);
 });
