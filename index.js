@@ -9,12 +9,11 @@ const CLIENT_SECRET = process.env.AUTH0_CLIENT_SECRET;
 
 app.use(express.json());
 
-app.post('/verify', (req, res) => {
-  const token = req.body.token || req.headers.authorization?.split(' ')[1];
+app.get('/protected', (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
   if (!token) {
     return res.status(401).json({ error: 'No token provided' });
   }
-
   jwt.verify(token, CLIENT_SECRET, { algorithms: ['HS256'] }, (err, decoded) => {
     if (err) {
       return res.status(401).json({ error: 'Invalid token', details: err.message });
